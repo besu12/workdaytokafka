@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka" xmlns:workday="http://www.mulesoft.org/schema/mule/workday" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/workday http://www.mulesoft.org/schema/mule/workday/current/mule-workday.xsd
+http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<kafka:producer-config name="Apache_Kafka_Producer_configuration" doc:name="Apache Kafka Producer configuration" doc:id="63d715e1-41c5-4663-a504-a87c9b8aec40" >
+		<kafka:producer-plaintext-connection >
+			<kafka:bootstrap-servers >
+				<kafka:bootstrap-server value="localhost:9092" />
+			</kafka:bootstrap-servers>
+		</kafka:producer-plaintext-connection>
+	</kafka:producer-config>
+	<kafka:consumer-config name="Apache_Kafka_Consumer_configuration" doc:name="Apache Kafka Consumer configuration" doc:id="bc7a7789-a027-49cb-8e7f-6cad782fca5a" >
+		<kafka:consumer-plaintext-connection >
+			<kafka:bootstrap-servers >
+				<kafka:bootstrap-server value="localhost:9092" />
+			</kafka:bootstrap-servers>
+			<kafka:topic-patterns >
+				<kafka:topic-pattern value="first-topic" />
+			</kafka:topic-patterns>
+		</kafka:consumer-plaintext-connection>
+	</kafka:consumer-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="aa3341a6-2e7e-47d1-b4be-e921fbfa7b43" >
+		<db:my-sql-connection host="mudb.learn.mulesoft.com" port="3306" user="mule" password="mule" database="training" />
+	</db:config>
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="24fecddf-6e9c-44ed-b746-70ba8427153a" >
+		<salesforce:basic-connection username="besufikad@thiotec.com" password="Liyat&amp;s19" securityToken="agdkYRjRH9RwEtveBSBMfxlBD" />
+	</salesforce:sfdc-config>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="678f4138-e2bd-4bc8-899b-02dfd98a09ec" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="workdayapiFlow" doc:id="8d339195-cee7-4258-8842-826ade542771" >
+		<http:listener doc:name="Listener" doc:id="3834aa4b-48df-4a38-8d15-a7475db415a3" config-ref="HTTP_Listener_config" path="/kafka"/>
+		<salesforce:query-all doc:name="Query all" doc:id="2556097a-4bf8-48c0-858a-f4676792066e" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query ><![CDATA[select name from Account]]></salesforce:salesforce-query>
+		</salesforce:query-all>
+		<ee:transform doc:name="Transform Message" doc:id="8ec9973b-3be3-4253-a42a-d8cdaf11ac17" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="66bed275-2806-472c-88b1-341f0da488d5" message="payload from saleforce ----------#[payload]"/>
+		<foreach doc:name="For Each" doc:id="6001ad12-06f2-48eb-9c60-5a4e7b8cb8d8" collection="#[payload]">
+			<kafka:publish doc:name="Publish" doc:id="cffe9ae9-0407-4ee8-b2b4-5ac8dc51a8df" config-ref="Apache_Kafka_Producer_configuration" key="#[now()]" topic="first-topic" partition="0">
+		</kafka:publish>
+		</foreach>
+		<logger level="INFO" doc:name="Logger" doc:id="cd363940-f0e6-4e65-8897-ac0e3f7fe43a" message="message publish to kafka topic "/>
+	</flow>
+	<flow name="workdayapiFlow1" doc:id="5c77f395-1c04-442f-9ffe-7a07a6e1e267" >
+		<kafka:message-listener doc:name="Message listener" doc:id="705ab4bf-a81b-4b0f-9fd5-cc92fc3fd6fb" config-ref="Apache_Kafka_Consumer_configuration"/>
+		<logger level="INFO" doc:name="Logger" doc:id="def7eb70-4627-49cd-8ddb-e2eb7c63af67" message="message recived sucefully --------#[payload]"/>
+	</flow>
+</mule>
